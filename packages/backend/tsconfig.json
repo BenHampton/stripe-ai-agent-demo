@@ -1,14 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "outDir": "./dist",
-    "paths": {
-      "@sai/shared": ["../shared/src/index.ts"],
-      "@sai/shared/*": ["../shared/src/*"]
-    }
+    "rootDir": "./src",
+    // composite + references is the correct monorepo pattern for cross-package imports.
+    // This replaces the old paths workaround and fixes TS6059 (rootDir violation)
+    // that occurs when importing @sai/shared under NodeNext moduleResolution.
+    "composite": true
   },
+  "references": [
+    { "path": "../shared" }
+  ],
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

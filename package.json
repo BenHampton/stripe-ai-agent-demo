@@ -2,7 +2,7 @@
   "name": "stripe-ai-agent-demo",
   "version": "0.0.1",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "pnpm@10.12.4",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
@@ -19,6 +19,6 @@
     "db:migrate": "pnpm --filter @sai/shared db:migrate"
   },
   "devDependencies": {
-    "typescript": "^5.5.0"
+    "typescript": "^6.0.0"
   }
 }
