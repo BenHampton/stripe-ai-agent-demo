@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    // Modern ESNext modules — required for top-level await and dynamic imports
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    // Strict mode catches real bugs — not negotiable in production code
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Emit declaration files so packages can import types from each other
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Required for Drizzle and some other ESM-first libraries
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+
+    // Decorator support for future use (e.g. class-based validators)
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    "skipLibCheck": true
+  }
+}

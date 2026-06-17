@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.tsbuildinfo
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Editor
+.DS_Store
+*.swp
+
+# JetBrains IDEs — .idea is partially tracked; ignore only user-specific files
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/shelf/
+.idea/dictionaries/
+.idea/httpRequests/
+.idea/dataSources/
+.idea/dataSources.local.xml
+.idea/**/contentModel.xml
+*.iws
+out/
+
+# VS Code — keep shared team config, ignore the rest
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+.history/
+*.code-workspace
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+pino-*.log
+
+# Tooling caches
+.cache/
+.eslintcache
+.pnpm-store/
+.turbo/

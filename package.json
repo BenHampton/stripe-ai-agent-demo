@@ -1,0 +1,24 @@
+{
+  "name": "stripe-ai-agent-demo",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter './packages/*' dev",
+    "build": "pnpm --filter @sai/shared build && pnpm --filter './packages/*' build",
+    "test": "pnpm --filter './packages/*' test",
+    "typecheck": "pnpm --filter './packages/*' typecheck",
+    "lint": "pnpm --filter './packages/*' lint",
+    "ingest": "pnpm --filter @sai/backend ingest",
+    "seed:stripe": "pnpm --filter @sai/backend seed:stripe",
+    "db:generate": "pnpm --filter @sai/shared db:generate",
+    "db:migrate": "pnpm --filter @sai/shared db:migrate"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
