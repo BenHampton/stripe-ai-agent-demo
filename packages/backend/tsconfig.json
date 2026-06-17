@@ -1,10 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "outDir": "./dist",
-    "rootDir": "./src",
     "paths": {
-      "@sai/shared": ["../shared/src/index.ts"]
+      "@sai/shared": ["../shared/src/index.ts"],
+      "@sai/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src"],
