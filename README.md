@@ -13,6 +13,8 @@ The project lives in a single stripe-ai-agent-demo/ pnpm monorepo.
 Each package has its own package.json, tsconfig.json, and deployment target — sharing business logic only through @sai/shared via workspace imports.
 At larger team size these would be independent repos; the monorepo keeps local dev frictionless while preserving the architectural boundaries.
 
+---
+
 ### Architecture / Tech Stack
 
 @sai/shared — internal package, imported by backend and MCP server
@@ -39,6 +41,7 @@ Tailwind 3, shadcn/ui (Radix UI primitives), lucide-react
 recharts (dashboard visualizations)
 No shared imports from @sai/backend or @sai/shared — communicates with the backend exclusively via HTTP REST and SSE streaming
 
+---
 
 ## PNPM
 - verify links:
@@ -46,10 +49,14 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - pnpm list --filter @sai/backend 
   - pnpm list --filter @sai/shared 
 
+---
+
 ## Drizzle
 - create migration: `pnpm db:generate --name MIGRATION_NAME`
 - create empty migration: `pnpm dotenv -e ../../.env -- drizzle-kit generate --custom --name=MIGRATION_NAME`
 - apply migration: `pnpm db:migrate`
+
+---
 
 ## Stripe
 - seed test data:
@@ -63,7 +70,10 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - find Delete all test data
 - CLI: purge all test data: `stripe fixtures delete --all`
 
+---
+
 ## Knowledge Base
+
 #### Ingest
 - The script hashes each file's content (SHA-256) and compares against what's stored in the kb_documents table.
   - Skips the unchanged kbs
@@ -72,3 +82,10 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - run: `pnpm --filter @sai/backend ingest`
   - run script for specific file: `pnpm ingest --file=faq.md`
   - force reembedding: `pnpm --filter @sai/backend ingest --force`
+
+---
+
+## RAG (Retrieval-Augmented Generation)
+
+#### Manually test retrieval 
+- run: `pnpm --filter @sai/backend test-retrieval`

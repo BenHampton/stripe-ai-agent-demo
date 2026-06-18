@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "ingest": "tsx --env-file=../../.env src/scripts/ingest.ts",
-    "seed:stripe": "tsx --env-file=../../.env src/scripts/seed-stripe.ts"
+    "seed:stripe": "tsx --env-file=../../.env src/scripts/seed-stripe.ts",
+    "test-retrieval": "tsx --env-file=../../.env src/scripts/test-retrieval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.0",

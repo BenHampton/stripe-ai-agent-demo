@@ -320,7 +320,7 @@ async function main() {
 
     console.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Ingestion complete
+   Ingestion complete
    Chunks written: ${totalChunks}
    Files skipped:  ${skippedCount}
    Errors:         ${errorCount}
@@ -329,7 +329,16 @@ async function main() {
     if (errorCount > 0) process.exit(1);
 }
 
-main().catch((err) => {
-    console.error('Fatal error:', err);
-    process.exit(1);
-});
+// Only run ingestion when this file is executed directly (e.g. `pnpm ingest`),
+// NOT when another module imports chunkMarkdown from it. Without this guard,
+// importing chunkMarkdown (via rag.ts) triggers a full ingestion run as a side
+// effect — re-embedding every document on any import of the retrieval path.
+const isMain = !!process.argv[1] &&
+    import.meta.url === `file://${process.argv[1]}`;
+
+if (isMain) {
+    main().catch((err) => {
+        console.error('Fatal error:', err);
+        process.exit(1);
+    });
+}

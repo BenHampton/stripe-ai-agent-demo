@@ -2,25 +2,15 @@ import { VoyageAIClient } from 'voyageai';
 
 import { env } from '@sai/shared';
 
-/**
- * EmbeddingProvider interface.
- *
- * Every concrete provider implements this. Code that needs embeddings
- * depends on this interface — not on any specific provider.
- *
- * The dimensions property is critical: it must match the pgvector column
- * size in schema.ts (currently vector(1024) for voyage-3-large).
- * If you switch providers, update both this and the migration.
- *
- * NOTE: Voyage embeddings were never available through the Anthropic SDK.
- * Use the official voyageai npm package (api.voyageai.com/v1/embeddings).
- * Add VOYAGE_API_KEY to your .env — separate from ANTHROPIC_API_KEY.
- */
+// Voyage distinguishes documents (stored) from queries (searched).
+// Using the right input type for each improves retrieval quality measurably.
+export type InputType = 'document' | 'query';
+
 export interface EmbeddingProvider {
     readonly dimensions: number
     readonly modelName: string
-    embed(text: string): Promise<number[]>
-    embedBatch(texts: string[]): Promise<number[][]>
+    embed(text: string, inputType?: InputType): Promise<number[]>;
+    embedBatch(texts: string[], inputType?: InputType): Promise<number[][]>;
 }
 
 export class VoyageEmbeddingProvider implements EmbeddingProvider {
@@ -36,8 +26,8 @@ export class VoyageEmbeddingProvider implements EmbeddingProvider {
         this.client = new VoyageAIClient({ apiKey: env.VOYAGE_API_KEY })
     }
 
-    async embed(text: string): Promise<number[]> {
-        const results = await this.embedBatch([text]);
+    async embed(text: string, inputType: InputType = 'document'): Promise<number[]> {
+        const results = await this.embedBatch([text], inputType);
         const result = results[0];
         if (!result) {
             throw new Error('Embedding returned no results');
@@ -46,7 +36,7 @@ export class VoyageEmbeddingProvider implements EmbeddingProvider {
         return result;
     }
 
-    async embedBatch(texts: string[]): Promise<number[][]> {
+    async embedBatch(texts: string[], inputType: InputType = 'document'): Promise<number[][]> {
         if (texts.length === 0) {
             return [];
         }
@@ -56,21 +46,46 @@ export class VoyageEmbeddingProvider implements EmbeddingProvider {
         const allEmbeddings: number[][] = [];
 
         for (const batch of batches) {
-            // voyageai SDK: client.embed() returns EmbedResponse with .embeddings[]
-            const response = await this.client.embed({
-                model: this.modelName,
-                input: batch,
-                inputType: 'document', // use 'query' when embedding search queries
-            });
+            // embedWithRetry handles Voyage 429 rate limits with exponential backoff.
+            // Free-tier Voyage accounts are capped at 3 RPM until a payment method
+            // is added — without retry, ingestion fails on the 4th call onward.
+            const response = await this.embedWithRetry(batch, inputType);
 
+            // EmbedResponse shape: { data: EmbedResponseDataItem[] }
+            // Each item has .embedding (number[]) and .index (for ordering).
+            // Sort by index to guarantee order matches input batch order.
             const embeddings: number[][] = (response.data ?? [])
                 .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
                 .map(item => item.embedding ?? []);
-
             allEmbeddings.push(...embeddings);
         }
 
         return allEmbeddings;
+    }
+
+    // Call Voyage embed() with exponential backoff on 429 (rate limit) errors.
+    // Voyage free tier: 3 RPM / 10K TPM until a payment method is added.
+    // Retries: waits 2s, 4s, 8s, 16s, 32s (5 attempts) before giving up.
+    private async embedWithRetry(batch: string[], inputType: InputType, maxRetries = 5) {
+        let lastErr: unknown;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                return await this.client.embed({
+                    model: this.modelName,
+                    input: batch,
+                    inputType, // 'document' for KB ingestion, 'query' for searches
+                });
+            } catch (err: any) {
+                lastErr = err;
+                // Voyage SDK surfaces HTTP status on err.statusCode (Fern client)
+                const status = err?.statusCode ?? err?.status;
+                if (status !== 429 || attempt === maxRetries) throw err;
+                const waitMs = 2000 * Math.pow(2, attempt); // 2s, 4s, 8s, 16s, 32s
+                process.stdout.write(`(rate limited, retrying in ${waitMs / 1000}s) `);
+                await new Promise(r => setTimeout(r, waitMs));
+            }
+        }
+        throw lastErr;
     }
 }
 
@@ -79,12 +94,12 @@ export class MockEmbeddingProvider implements EmbeddingProvider {
     readonly dimensions = 1024;
     readonly modelName = 'mock';
 
-    async embed(text: string): Promise<number[]> {
-        // Deterministic mock: same text → same vector. Random but consistent.
+    async embed(text: string, _inputType: InputType = 'document'): Promise<number[]> {
+        // Deterministic mock: same text → same vector. inputType ignored in mock.
         return this.deterministicVector(text);
     }
 
-    async embedBatch(texts: string[]): Promise<number[][]> {
+    async embedBatch(texts: string[], inputType: InputType = 'document'): Promise<number[][]> {
         return Promise.all(texts.map((t) => this.embed(t)));
     }
 
@@ -104,28 +119,26 @@ export class MockEmbeddingProvider implements EmbeddingProvider {
 
 // Singleton factory
 
-let _provider: EmbeddingProvider | undefined
+let _provider: EmbeddingProvider | undefined;
 
 export function getEmbeddingProvider(): EmbeddingProvider {
     if (!_provider) {
         // In test environments, use the mock to avoid API calls
         _provider = env.NODE_ENV === 'test'
             ? new MockEmbeddingProvider()
-            : new VoyageEmbeddingProvider()
+            : new VoyageEmbeddingProvider();
     }
-
-    return _provider
+    return _provider;
 }
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
-    const chunks: T[][] = []
-
+    const chunks: T[][] = [];
     for (let i = 0; i < arr.length; i += size) {
-        chunks.push(arr.slice(i, i + size))
+        chunks.push(arr.slice(i, i + size));
     }
-
-    return chunks
+    return chunks;
 }
+
 
 /**
  * Convert a vector (number[]) to the pgvector string format.
