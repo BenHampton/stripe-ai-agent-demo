@@ -50,3 +50,15 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 - create migration: `pnpm db:generate --name MIGRATION_NAME`
 - create empty migration: `pnpm dotenv -e ../../.env -- drizzle-kit generate --custom --name=MIGRATION_NAME`
 - apply migration: `pnpm db:migrate`
+
+## Stripe
+- seed test data:
+  - build: `pnpm --filter @sai/shared build`
+  - seed: `pnpm --filter @sai/shared seed:stripe`
+- CLI
+  - install via brew `brew install stripe/stripe-cli/stripe`
+  - run `stripe login`
+- purge all test data:
+  - go to https://dashboard.stripe.com/test/developers
+  - find Delete all test data
+- CLI: purge all test data: `stripe fixtures delete --all`

@@ -1,0 +1,12 @@
+{
+  // Separate tsconfig for drizzle.config.ts — it lives outside rootDir (src/)
+  // so it cannot be in the main tsconfig.json without causing TS6059.
+  // drizzle-kit reads this file at runtime; noEmit keeps tsc from writing dist files.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["drizzle.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -6,6 +6,6 @@
     // composite enables project references — required for cross-package imports
     "composite": true
   },
-  "include": ["src", "drizzle.config.ts"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

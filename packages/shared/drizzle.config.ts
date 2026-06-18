@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig } from 'drizzle-kit';
 
 // For migrations, we need the direct (non-pooled) Neon URL.
