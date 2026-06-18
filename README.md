@@ -62,3 +62,13 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - go to https://dashboard.stripe.com/test/developers
   - find Delete all test data
 - CLI: purge all test data: `stripe fixtures delete --all`
+
+## Knowledge Base
+#### Ingest
+- The script hashes each file's content (SHA-256) and compares against what's stored in the kb_documents table.
+  - Skips the unchanged kbs
+- use `INGEST_THROTTLE_MS=21000` to jitter around Voyage free-tier rate limits
+- Run script:
+  - run: `pnpm --filter @sai/backend ingest`
+  - run script for specific file: `pnpm ingest --file=faq.md`
+  - force reembedding: `pnpm --filter @sai/backend ingest --force`
