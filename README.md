@@ -45,3 +45,8 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - pnpm list --filter @sai/frontend 
   - pnpm list --filter @sai/backend 
   - pnpm list --filter @sai/shared 
+
+## Drizzle
+- create migration: `pnpm db:generate --name MIGRATION_NAME`
+- create empty migration: `pnpm dotenv -e ../../.env -- drizzle-kit generate --custom --name=MIGRATION_NAME`
+- apply migration: `pnpm db:migrate`

@@ -143,6 +143,7 @@ export const pendingApprovals = pgTable('pending_approvals', (t) => ({
     index('approval_expires_idx').on(table.expiresAt),
 ]);
 
+
 // Workflows
 // Durable workflow state for multi-step operations (e.g. refund + cancel).
 // Each step is tracked individually so failures can be compensated.

@@ -15,8 +15,8 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:generate": "dotenv -e ../../.env drizzle-kit generate",
+    "db:migrate": "dotenv -e ../../.env drizzle-kit migrate"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -27,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^25.9.3",
     "@types/pg": "^8.20.0",
+    "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.0",
     "typescript": "^6.0.0"
   }

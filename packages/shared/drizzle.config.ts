@@ -1,9 +1,8 @@
 import { defineConfig } from 'drizzle-kit';
 
-console.log('DATABASE_URL:', process.env.DATABASE_URL)
-
 // For migrations, we need the direct (non-pooled) Neon URL.
-// Set DATABASE_DIRECT_URL in .env for Neon; for local Docker it's the same as DATABASE_URL.
+// Set DATABASE_DIRECT_URL in .env for Neon
+// for local Docker it's the same as DATABASE_URL.
 const connectionString =
     process.env['DATABASE_DIRECT_URL'] ?? process.env['DATABASE_URL'];
 
