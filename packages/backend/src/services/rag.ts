@@ -7,8 +7,8 @@ import { getEmbeddingProvider, vectorToString } from './embeddings.js';
 export { chunkMarkdown } from '../scripts/ingest.js';
 
 export interface RetrievalOptions {
-    topK?: number //Maximum number of chunks to return. Default: 5
-    minScore?: number // Minimum similarity score (0–1). Chunks below this are excluded. Default: 0.65
+    topK?: number //Maximum number of chunks to return. Default: env.RAG_TOP_K (5)
+    minScore?: number // Minimum similarity score (0–1). Chunks below this are excluded. Default: env.RAG_MIN_SCORE (0.65)
     category?: string //Filter to a specific category. Optional.
 }
 
@@ -17,7 +17,7 @@ export async function retrieve(
     query: string,
     options: RetrievalOptions = {},
 ): Promise<RagChunk[]> {
-    const { topK = 5, minScore = 0.65, category } = options
+    const { topK = env.RAG_TOP_K, minScore = env.RAG_MIN_SCORE, category } = options;
 
     const embedder = getEmbeddingProvider()
     const db = getDb(env.DATABASE_URL)

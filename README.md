@@ -88,4 +88,5 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 ## RAG (Retrieval-Augmented Generation)
 
 #### Manually test retrieval 
+- first build: `pnpm --filter @sai/shared build`
 - run: `pnpm --filter @sai/backend test-retrieval`

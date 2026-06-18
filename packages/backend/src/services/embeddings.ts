@@ -79,9 +79,13 @@ export class VoyageEmbeddingProvider implements EmbeddingProvider {
                 lastErr = err;
                 // Voyage SDK surfaces HTTP status on err.statusCode (Fern client)
                 const status = err?.statusCode ?? err?.status;
-                if (status !== 429 || attempt === maxRetries) throw err;
+                if (status !== 429 || attempt === maxRetries) {
+                    throw err;
+                }
+                // TODO replace 2000 with throttleMs.. maybe??
+                // const throttleMs = Number(process.env.INGEST_THROTTLE_MS ?? 21000);
                 const waitMs = 2000 * Math.pow(2, attempt); // 2s, 4s, 8s, 16s, 32s
-                process.stdout.write(`(rate limited, retrying in ${waitMs / 1000}s) `);
+                process.stdout.write(`(rate limited, retrying in ${waitMs / 1000}s) \n`);
                 await new Promise(r => setTimeout(r, waitMs));
             }
         }

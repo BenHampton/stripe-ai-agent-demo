@@ -63,6 +63,22 @@ const envSchema = z.object({
         .regex(/^\d+$/)
         .transform(Number)
         .default(8000),
+
+    // ── RAG / Retrieval ──────────────────────────────────────────────────────
+    // Max KB chunks returned per query. Higher = more context but more tokens.
+    RAG_TOP_K: z
+        .string()
+        .regex(/^\d+$/)
+        .transform(Number)
+        .default(5),
+
+    // Minimum cosine similarity (0–1) for a chunk to be returned.
+    // Tuned against query-type embeddings — lower if relevant chunks get filtered.
+    RAG_MIN_SCORE: z
+        .string()
+        .regex(/^\d*\.?\d+$/)
+        .transform(Number)
+        .default(0.65),
 });
 
 
