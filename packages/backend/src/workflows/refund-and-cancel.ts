@@ -12,9 +12,7 @@ type RefundAndCancelCtx = {
 }
 
 
-export async function refundAndCancelWorkflow(
-    params: Omit<RefundAndCancelCtx, 'refundId' | 'cancelledAt'>,
-) {
+export async function refundAndCancelWorkflow(params: Omit<RefundAndCancelCtx, 'refundId' | 'cancelledAt'>) {
     return runWorkflow<RefundAndCancelCtx>(
         {
             type: 'refund_and_cancel',

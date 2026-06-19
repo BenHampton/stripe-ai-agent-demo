@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import {webhooksRouter} from "./routes/webhooks.js";
 import {approvalsRouter} from "./routes/approvals.js";
+import {retentionRouter} from "./routes/retention.js";
 // hono/logger is Hono's built-in request logger — no extra file needed.
 // The structured pino logger (application-level) is added in Section 19.
 
@@ -21,7 +22,11 @@ app.get('/health', (c) => c.json(
 app.use('*', logger());
 
 // Routes
-app.get('/', (c) => c.json({ status: 'ok', service: 'stripe-ai-agent-demo' }));
+app.get('/', (c) => c.json({
+    status: 'ok', service: 'stripe-ai-agent-demo'
+}));
+
+app.route('/api/retention', retentionRouter);
 
 // Stripe webhooks, no JWT (Stripe signs its own requests)
 app.route('/api/webhooks/stripe', webhooksRouter);

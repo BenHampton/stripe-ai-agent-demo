@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm';
 export const conversationChannelEnum = pgEnum('conversation_channel', [
     'chat',     // initiated by a human via the chat UI
     'webhook',  // initiated autonomously by a Stripe event
+    'proactive',  // initiated by the agent (e.g. retention outreach to an at-risk customer)
 ]);
 
 export const conversationStatusEnum = pgEnum('conversation_status', [
@@ -16,6 +17,7 @@ export const conversationStatusEnum = pgEnum('conversation_status', [
     'resolved',
     'escalated',
     'pending_approval',
+    'pending_review',
 ]);
 
 export const messageRoleEnum = pgEnum('message_role', [

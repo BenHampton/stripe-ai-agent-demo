@@ -22,6 +22,20 @@
       "when": 1781837876639,
       "tag": "0002_panoramic_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781899994245,
+      "tag": "0003_fat_sentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781900549321,
+      "tag": "0004_chemical_eternity",
+      "breakpoints": true
     }
   ]
 }
