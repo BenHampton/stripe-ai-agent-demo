@@ -31,20 +31,49 @@ approvalsRouter.post('/:id/review',
     async (c) => {
         const db = getDb(env.DATABASE_URL);
         const { decision, reviewedBy, note } = c.req.valid('json');
-        const rows = await db.select().from(pendingApprovals).where(eq(pendingApprovals.id, c.req.param('id'))).limit(1);
+        const rows = await db.select()
+            .from(pendingApprovals)
+            .where(eq(pendingApprovals.id, c.req.param('id')))
+            .limit(1);
+
         const approval = rows[0];
-        if (!approval)                          return c.json({ error: 'Not found' }, 404);
-        if (approval.status !== 'pending')     return c.json({ error: `Already ${approval.status}` }, 409);
-        if (approval.expiresAt < new Date()) { await db.update(pendingApprovals).set({ status: 'expired' }).where(eq(pendingApprovals.id, approval.id)); return c.json({ error: 'Expired' }, 410); }
+        if (!approval) {
+            return c.json({ error: 'Not found' }, 404);
+        }
+
+        if (approval.status !== 'pending') {
+            return c.json({ error: `Already ${approval.status}` }, 409);
+        }
+
+        if (approval.expiresAt < new Date()) {
+
+            await db.update(pendingApprovals)
+                .set({ status: 'expired' })
+                .where(eq(pendingApprovals.id, approval.id));
+
+            return c.json({ error: 'Expired' }, 410);
+        }
 
         let executionResult: unknown = null;
         if (decision === 'approved') {
-            try { executionResult = await executeApprovedAction(approval.action, approval.params as any); }
-            catch (err) { return c.json({ error: 'Execution failed', detail: err instanceof Error ? err.message : 'Unknown' }, 500); }
+
+            try {
+                executionResult = await executeApprovedAction(approval.action, approval.params as any);
+            }
+            catch (err) {
+                return c.json({ error: 'Execution failed', detail: err instanceof Error ? err.message : 'Unknown' }, 500);
+            }
         }
 
-        await db.update(pendingApprovals).set({ status: decision, reviewedBy, reviewedAt: new Date(), reviewNote: note }).where(eq(pendingApprovals.id, approval.id));
-        if (approval.conversationId) await db.update(conversations).set({ status: decision === 'approved' ? 'resolved' : 'escalated', resolvedAt: new Date() }).where(eq(conversations.id, approval.conversationId));
+        await db.update(pendingApprovals)
+            .set({ status: decision, reviewedBy, reviewedAt: new Date(), reviewNote: note })
+            .where(eq(pendingApprovals.id, approval.id));
+
+        if (approval.conversationId) {
+            await db.update(conversations)
+                .set({ status: decision === 'approved' ? 'resolved' : 'escalated', resolvedAt: new Date() })
+                .where(eq(conversations.id, approval.conversationId));
+        }
 
         return c.json({ success: true, decision, executionResult: decision === 'approved' ? executionResult : null });
     },
