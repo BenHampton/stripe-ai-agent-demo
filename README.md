@@ -107,3 +107,34 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 #### Manually test retrieval 
 - first build: `pnpm --filter @sai/shared build`
 - run: `pnpm --filter @sai/backend test-retrieval`
+
+
+## MCP
+
+#### Connect to Claude Desktop
+Add the MCP server to your Claude Desktop config file. The easiest way to open it is Settings → Developer → Edit Config in Claude Desktop, which opens the file in your system's config folder:
+
+- macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
+- Windows: %APPDATA%\Claude\claude_desktop_config.json (i.e. C:\Users\<you>\AppData\Roaming\Claude\)
+- Linux: ~/.config/Claude/claude_desktop_config.json
+
+```
+{
+  "mcpServers": {
+    "stripe-ai-agent": {
+      "command": "pnpm",
+      "args": ["--filter", "@sai/backend", "mcp"],
+      "cwd": "/path/to/stripe-ai-agent-demo",
+      "env": {
+        "ANTHROPIC_API_KEY":     "sk-ant-...",
+        "STRIPE_SECRET_KEY":     "sk_test_...",
+        "DATABASE_URL":          "postgresql://..."
+      }
+    }
+  }
+}
+```
+- After saving the config and restarting Claude Desktop, the tool hammer icon appears in the chat input. 
+Claude Desktop can now call get_customer, search_knowledge_base, issue_refund, and all other registered tools directly. 
+This is the interview demo moment: "I can also use these tools from any MCP client, including Claude Desktop."
+
