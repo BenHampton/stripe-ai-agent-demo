@@ -56,3 +56,4 @@ pino-*.log
 
 # TypeScript build cache
 **/*.tsbuildinfo
+/.idea/

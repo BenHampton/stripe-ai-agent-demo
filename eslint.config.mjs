@@ -29,7 +29,9 @@ export default tseslint.config(
                 { selector: 'variable', format: ['camelCase', 'UPPER_CASE', 'PascalCase'], leadingUnderscore: 'allow' },
                 { selector: 'function', format: ['camelCase', 'PascalCase'] },
                 { selector: 'parameter', format: ['camelCase', 'PascalCase'], leadingUnderscore: 'allow' },
-                { selector: 'typeLike', format: ['PascalCase'] },
+// Destructured params mirror object/schema keys — exempt them so tool handlers
+                // like ({ customer_id, amount_cents }) don't trip the rule at the LLM boundary.
+                { selector: 'parameter', modifiers: ['destructured'], format: null },                { selector: 'typeLike', format: ['PascalCase'] },
                 // Object/type properties: NO format — the boundary exemption.
                 { selector: ['objectLiteralProperty', 'typeProperty'], format: null },
             ],
