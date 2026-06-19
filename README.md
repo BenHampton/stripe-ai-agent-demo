@@ -45,14 +45,17 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 
 ## PNPM
 - verify links:
-  - pnpm list --filter @sai/frontend 
-  - pnpm list --filter @sai/backend 
-  - pnpm list --filter @sai/shared 
-
-#### lint
-- `pnpm --filter @sai/backend lint`
-- `pnpm --filter @sai/frontend lint`
-- `pnpm --filter @sai/shared lint`
+  - `pnpm list --filter @sai/frontend` 
+  - `pnpm list --filter @sai/backend` 
+  - `pnpm list --filter @sai/shared`
+- build:
+  - `pnpm --filter @sai/backend build`
+  - `pnpm --filter @sai/frontend build`
+  - `pnpm --filter @sai/shared build`
+- lint:
+  - `pnpm --filter @sai/backend lint`
+  - `pnpm --filter @sai/frontend lint`
+  - `pnpm --filter @sai/shared lint`
 
 ---
 
