@@ -49,6 +49,11 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - pnpm list --filter @sai/backend 
   - pnpm list --filter @sai/shared 
 
+#### lint
+- `pnpm --filter @sai/backend lint`
+- `pnpm --filter @sai/frontend lint`
+- `pnpm --filter @sai/shared lint`
+
 ---
 
 ## Drizzle

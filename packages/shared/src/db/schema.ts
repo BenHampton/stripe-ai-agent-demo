@@ -45,6 +45,7 @@ export const agentTypeEnum = pgEnum('agent_type', [
     'billing',
     'knowledge',
     'retention',
+    'general'
 ]);
 
 // Conversations
