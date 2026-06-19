@@ -78,6 +78,15 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - find Delete all test data
 - CLI: purge all test data: `stripe fixtures delete --all`
 
+#### Webhook
+1. cli
+2. stripe login
+3. stripe listen --forward-to localhost:3000/api/webhooks/stripe
+   - copy the webhook secret printed here to STRIPE_WEBHOOK_SECRET in .env
+4. run: `stripe trigger payment_intent.payment_failed`
+5. run: `stripe trigger customer.subscription.deleted`
+6. run: `stripe trigger charge.dispute.created`
+
 ---
 
 ## Knowledge Base
