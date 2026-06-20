@@ -59,7 +59,7 @@ export const stripeTools: Record<string, RegisteredTool<any>> = {
             Refunds over $50000 cents ($500): escalate to senior finance — do NOT call this.`,
             input_schema: { type: 'object', properties: { charge_id: { type: 'string' }, amount_cents: { type: 'number' }, reason: { type: 'string', enum: ['duplicate', 'fraudulent', 'requested_by_customer'] }, conversation_id: { type: 'string' } }, required: ['charge_id', 'amount_cents', 'reason', 'conversation_id'] },
         },
-        schema: z.object({ charge_id: z.string().startsWith('ch_'), amount_cents: z.number().int().positive(), reason: z.enum(['duplicate', 'fraudulent', 'requested_by_customer']), conversation_id: z.string().uuid() }),
+        schema: z.object({ charge_id: z.string().startsWith('ch_'), amount_cents: z.number().int().positive(), reason: z.enum(['duplicate', 'fraudulent', 'requested_by_customer']), conversation_id: z.uuid() }),
         handler: async ({ charge_id, amount_cents, reason, conversation_id }) =>
             stripe.issueRefund({ chargeId: charge_id, amountCents: amount_cents, reason, conversationId: conversation_id }),
     },

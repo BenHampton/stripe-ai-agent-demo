@@ -1,0 +1,39 @@
+# Everything Docker should NOT send into the build context. A smaller context
+# means faster `docker build` and prevents stale/host-specific files from leaking
+# into the image.
+
+# Dependencies — reinstalled fresh inside the build (never copy host node_modules,
+# which may be built for a different OS/arch).
+**/node_modules
+
+# Build output — the image's `build` stage compiles dist/ itself; copying a host
+# dist/ would risk shipping stale code.
+**/dist
+
+# Version control & CI
+.git
+.github
+.gitignore
+
+# Local env & secrets — must NEVER enter an image.
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+
+# Tests, coverage, logs — not needed at runtime.
+**/*.test.ts
+**/coverage
+**/*.log
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+
+# Misc
+README.md
+*.md

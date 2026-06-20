@@ -19,7 +19,7 @@ const envSchema = z.object({
     // Database
     // Neon connection string or local Postgres URL from docker-compose
     // Format: postgresql://user:password@host:5432/dbname?sslmode=require
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.url(),
 
     // Anthropic 
     // API key from console.anthropic.com — used for both Claude and Voyage embeddings

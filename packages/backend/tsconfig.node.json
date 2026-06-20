@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist-tooling"
+  },
+  "include": ["vitest.config.ts", "vitest.setup.ts"]
+}

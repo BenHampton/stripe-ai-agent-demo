@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { env, getDb, pendingApprovals } from '@sai/shared';
 import type { AgentType } from '../tools/registry.js';
 

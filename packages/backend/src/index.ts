@@ -1,46 +1,57 @@
 // This MUST be the first import — validates all env vars before anything else runs.
 // If validation fails, the process exits here with a descriptive error message.
-import { env } from '@sai/shared';
+import {env, getDb} from '@sai/shared';
 
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
+import { logger } from './lib/logger.js';
 import {webhooksRouter} from "./routes/webhooks.js";
 import {approvalsRouter} from "./routes/approvals.js";
 import {retentionRouter} from "./routes/retention.js";
 import {dashboardRouter} from "./routes/dashboard.js";
-// hono/logger is Hono's built-in request logger — no extra file needed.
-// The structured pino logger (application-level) is added in Section 19.
+import {apiKeyAuth, jwtAuth, tokenHandler} from "./middleware/auth.js";
+import {sql} from "drizzle-orm";
+import {chatRouter} from "./routes/chat.js";
 
 const app = new Hono();
 
-// app.use('*', cors({ origin: env.ALLOWED_ORIGINS.split(','), allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'] }));
-app.get('/health', (c) => c.json(
-    { status: 'ok', ts: new Date().toISOString() }
-));
+app.use('*', cors({ origin: env.ALLOWED_ORIGINS.split(','), allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'] }));
 
-// Middleware
-app.use('*', logger());
+// Public Routes
+app.get('/health', async (c) => {
+    try {
+        await getDb(env.DATABASE_URL).execute(sql`SELECT 1`);
+        return c.json({ status: 'ok', db: 'ok', ts: new Date().toISOString() });
+    } catch {
+        c.status(503); return c.json({ status: 'degraded', db: 'unreachable' });
+    }
+});
 
-// Routes
-app.get('/', (c) => c.json({
-    status: 'ok', service: 'stripe-ai-agent-demo'
-}));
+// Token issuance (demo-safe: any customer_id, no password)
+app.post('/api/auth/token', async (c) => {
+    const { customer_id } = await c.req.json<{ customer_id: string }>();
+    if (!customer_id) { c.status(400); return c.json({ error: 'customer_id required' }); }
+    return c.json(await tokenHandler(customer_id));
+});
 
-app.route('/api/retention', retentionRouter);
-
-// Stripe webhooks, no JWT (Stripe signs its own requests)
+// Stripe webhooks - verified by Stripe signature, not JWT
 app.route('/api/webhooks/stripe', webhooksRouter);
 
-// Protected routes
-app.route('/api/approvals', approvalsRouter);
+// JWT-protected routes
+app.use('/api/chat/*', jwtAuth);
+app.route('/api/chat', chatRouter);
 
-app.route('/api/dashboard', dashboardRouter);
+// API-key-protected (admin / cron / internal) Routes
+app.use('/api/approvals/*',  apiKeyAuth);
+app.use('/api/dashboard/*',  apiKeyAuth);
+app.use('/api/retention/*',  apiKeyAuth);
+app.route('/api/approvals',  approvalsRouter);
+app.route('/api/dashboard',  dashboardRouter);
+app.route('/api/retention',  retentionRouter);
 
-const port = env.PORT;
-
-serve({ fetch: app.fetch, port }, () => {
-    process.stdout.write(`Backend running on http://localhost:${port}\n`);
+serve({ fetch: app.fetch, port: env.PORT }, () => {
+    logger.info(`Backend on http://localhost:${env.PORT}`);
 });
 
 export default app;
