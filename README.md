@@ -15,6 +15,12 @@ At larger team size these would be independent repos; the monorepo keeps local d
 
 ---
 
+### Start Locally
+- backend: `pnpm --filter @sai/backend dev`
+- frontend: `pnpm --filter @sai/frontend dev`
+- 
+---
+
 ### Architecture / Tech Stack
 
 @sai/shared — internal package, imported by backend and MCP server
@@ -56,6 +62,10 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - `pnpm --filter @sai/backend lint`
   - `pnpm --filter @sai/frontend lint`
   - `pnpm --filter @sai/shared lint`
+- typecheck:
+  - `pnpm --filter @sai/backend typecheck`
+  - `pnpm --filter @sai/frontend typecheck`
+  - `pnpm --filter @sai/shared typecheck`
 
 ---
 

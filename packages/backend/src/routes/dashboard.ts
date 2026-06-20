@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { sql, eq, gte, and } from 'drizzle-orm';
-import { env, getDb, conversations, agentTraces, pendingApprovals } from '@sai/shared';
+import {env, getDb, conversations, agentTraces, pendingApprovals, messages} from '@sai/shared';
 
 export const dashboardRouter = new Hono();
 
@@ -96,4 +96,16 @@ dashboardRouter.get('/conversations', async (c) => {
   `);
 
     return c.json({ conversations: rows.rows, limit, offset });
+});
+
+dashboardRouter.get('/conversations/:id/detail', async (c) => {
+    const db  = getDb(env.DATABASE_URL);
+    const { id } = c.req.param();
+
+    const [msgs, traces] = await Promise.all([
+        db.select().from(messages).where(eq(messages.conversationId, id)).orderBy(messages.createdAt),
+        db.select().from(agentTraces).where(eq(agentTraces.conversationId, id)).limit(1),
+    ]);
+
+    return c.json({ messages: msgs, trace: traces[0] ?? null });
 });

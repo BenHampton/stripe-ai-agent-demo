@@ -8,7 +8,8 @@
     "moduleResolution": "Bundler",
     "outDir":    "dist",
     "rootDir":   "src",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/*"] },
+    "types": ["vite/client"]
   },
   "include": ["src"]
 }

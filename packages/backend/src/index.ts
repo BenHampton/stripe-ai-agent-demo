@@ -10,6 +10,7 @@ import {webhooksRouter} from "./routes/webhooks.js";
 import {approvalsRouter} from "./routes/approvals.js";
 import {retentionRouter} from "./routes/retention.js";
 import {dashboardRouter} from "./routes/dashboard.js";
+import { simulateRouter } from './routes/simulate.js';
 import {apiKeyAuth, jwtAuth, tokenHandler} from "./middleware/auth.js";
 import {sql} from "drizzle-orm";
 import {chatRouter} from "./routes/chat.js";
@@ -46,9 +47,13 @@ app.route('/api/chat', chatRouter);
 app.use('/api/approvals/*',  apiKeyAuth);
 app.use('/api/dashboard/*',  apiKeyAuth);
 app.use('/api/retention/*',  apiKeyAuth);
+app.use('/api/simulate/*', apiKeyAuth);
 app.route('/api/approvals',  approvalsRouter);
 app.route('/api/dashboard',  dashboardRouter);
 app.route('/api/retention',  retentionRouter);
+app.route('/api/simulate', simulateRouter);
+
+
 
 serve({ fetch: app.fetch, port: env.PORT }, () => {
     logger.info(`Backend on http://localhost:${env.PORT}`);

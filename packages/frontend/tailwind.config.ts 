@@ -1,0 +1,9 @@
+/**
+ * tailwind.config.ts — Tailwind v4
+ *
+ * In v4 the JS config is optional. Design tokens (colors, fonts, spacing)
+ * live in the CSS @theme block inside index.css.
+ * Keep this file only if you need JS-based plugins or complex dynamic values.
+ * Content scanning is automatic in v4 — no 'content' array needed.
+ */
+export default {};
