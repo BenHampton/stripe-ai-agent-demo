@@ -53,7 +53,17 @@ app.route('/api/dashboard',  dashboardRouter);
 app.route('/api/retention',  retentionRouter);
 app.route('/api/simulate', simulateRouter);
 
-
+// Central error handler — any unhandled error thrown in a route lands here and is
+// logged once, with context, through the structured logger. Beats try/catch in every
+// route: one place to log, one place to shape the client-facing error response.
+app.onError((err, c) => {
+    logger.error(
+        { err: err.message, path: c.req.path, method: c.req.method },
+        'unhandled request error',
+    );
+    c.status(500);
+    return c.json({ error: 'Internal server error' });
+});
 
 serve({ fetch: app.fetch, port: env.PORT }, () => {
     logger.info(`Backend on http://localhost:${env.PORT}`);

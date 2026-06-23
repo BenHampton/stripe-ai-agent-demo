@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { env, getDb, conversations, messages, agentTraces } from '@sai/shared';
 import { orchestrate } from '../agents/orchestrator.js';
+import { requestLogger } from '../lib/logger.js';
 import type { AgentTrace } from '../agents/core.js';
 
 export const chatRouter = new Hono();
@@ -21,15 +22,23 @@ chatRouter.post('/stream',
         const { message, customerId } = c.req.valid('json');
         let { conversationId } = c.req.valid('json');
         const db = getDb(env.DATABASE_URL);
+        const startedAt = Date.now(); // for end-to-end request latency
 
         // Create or resume conversation
+        const isNewConversation = !conversationId;
         if (!conversationId) {
             const result = await db.insert(conversations)
                 .values({ customerId, channel: 'chat', status: 'active' })
                 .returning();
-
             conversationId = result[0]!.id;
         }
+
+        // Request-scoped logger: every line below is tagged with this conversation + customer.
+        const log = requestLogger(conversationId, customerId);
+        log.info(
+            { messageLength: message.length, conversation: isNewConversation ? 'created' : 'resumed' },
+            'chat request received', // log length, not content (avoid logging user PII)
+        );
 
         // Load history (last 20 messages for context window management)
         const history = await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt).limit(20);
@@ -87,6 +96,16 @@ chatRouter.post('/stream',
                     .set({ status: lastTrace.outcome === 'pending_approval' ? 'pending_approval' : 'resolved', resolvedAt: new Date() })
                     .where(eq(conversations.id, conversationId));
             }
+
+            log.info(
+                {
+                    outcome: lastTrace?.outcome ?? 'unknown',
+                    agentType: lastTrace?.agentType,
+                    costUsdCents: lastTrace?.costUsdCents,
+                    durationMs: Date.now() - startedAt, // full request latency, not just the agent's
+                },
+                'chat request completed',
+            );
 
             await stream.writeSSE({ event: 'done', data: JSON.stringify({ conversationId, outcome: lastTrace?.outcome }) });
         });

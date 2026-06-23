@@ -12,3 +12,9 @@ export const logger = pino({
 export function agentLogger(conversationId: string, agentType: string) {
     return logger.child({ conversationId, agentType });
 }
+
+// Request-scoped child logger — binds conversation + customer so every line for a
+// single request is correlated. Grep one conversationId to replay its whole lifecycle.
+export function requestLogger(conversationId: string, customerId: string) {
+    return logger.child({ conversationId, customerId });
+}
