@@ -77,9 +77,10 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 ---
 
 ## Stripe
-- seed test data:
-  - build: `pnpm --filter @sai/shared build`
-  - seed: `pnpm --filter @sai/shared seed:stripe`
+
+#### Seed Test Data
+- build: `pnpm --filter @sai/shared build`
+- seed: `pnpm --filter @sai/shared seed:stripe`
 - CLI
   - install via brew `brew install stripe/stripe-cli/stripe`
   - run `stripe login`
@@ -87,6 +88,17 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
   - go to https://dashboard.stripe.com/test/developers
   - find Delete all test data
 - CLI: purge all test data: `stripe fixtures delete --all`
+
+#### CLI Commands
+- get customerId by email
+  - ` stripe customers list --email USERNAME@example.com | jq -r '.data[].id'`
+- manually activate Alice's existing sub.
+  - Find Alice's open invoice
+    - `stripe invoices list --customer cus_UixfvcJsEi2xxg --status open | jq -r '.data[].id'`
+  - Pay it (test mode, uses her attached tok_visa)
+    - `stripe invoices pay <in_xxx>`
+
+---
 
 #### Webhook
 1. cli

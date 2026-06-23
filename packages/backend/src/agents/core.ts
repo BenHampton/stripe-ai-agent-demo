@@ -4,6 +4,9 @@ import type { ToolCall, RagChunk, ThinkingBlock } from '@sai/shared';
 import { getToolsForAgent } from '../tools/registry.js';
 import type { AgentType } from '../tools/registry.js';
 import { runGuardrail, computeConfidence } from './guardrails.js';
+import { customerContext } from './prompts.js';
+import { agentLogger } from '../lib/logger.js';
+
 
 export type AgentEvent =
 | { type: 'token', content: string }
@@ -15,10 +18,17 @@ export type AgentEvent =
 | { type: 'done', response: string; trace: AgentTrace }
 
 export interface AgentTrace {
-    toolCalls: ToolCall[], ragChunks: RagChunk[]; thinkingBlocks: ThinkingBlock[]
-    confidence: number, inputTokens: number, outputTokens: number
-    thinkingTokens: number, cacheReadTokens: number, costUsdCents: number
-    durationMs: number, outcome: string
+    toolCalls: ToolCall[],
+    ragChunks: RagChunk[],
+    thinkingBlocks: ThinkingBlock[]
+    confidence: number,
+    inputTokens: number,
+    outputTokens: number
+    thinkingTokens: number,
+    cacheReadTokens: number,
+    costUsdCents: number
+    durationMs: number,
+    outcome: string
 }
 
 export interface AgentRunOptions {
@@ -27,7 +37,7 @@ export interface AgentRunOptions {
     customerId?: string, useExtendedThinking?: boolean
 }
 
-function estimateConstCents(model: string, input: number, output: number, thinking: number, cache: number): number {
+function estimateCostCents(model: string, input: number, output: number, thinking: number, cache: number): number {
     const p = model.includes('haiku')
         ? { input: 0.0000008, output: 0.000004, cache: 0.00000008 }
         : { input: 0.000003,  output: 0.000015, cache: 0.0000003  };
@@ -41,14 +51,33 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
     const model = 'claude-sonnet-4-6'
     const { definitions: tools, handlers } = getToolsForAgent(options.agentType)
 
+    const log = agentLogger(options.conversationId, options.agentType);
+    log.info({model, toolCount: tools.length, hasCustomer: !!options.customerId }, 'agent run started');
+
     const toolCalls: ToolCall[] = []
     const ragChunks: RagChunk[] = []
     const thinkingBlocks: ThinkingBlock[] = []
 
-    let inputTokens = 0, outputTokens = 0, thinkingTokens = 0, cacheReadTokens = 0;
-    let fullResponse = '', lastThinkReasoning = '', outcome = 'resolved';
-    let approvalQueued = false, toolErrorCount = 0
+    let inputTokens = 0
+    let outputTokens = 0
+    let thinkingTokens = 0
+    let cacheReadTokens = 0;
+
+    let fullResponse = ''
+    let lastThinkReasoning = ''
+    let outcome = 'resolved';
+    let approvalQueued = false
+    let toolErrorCount = 0
+
     const messages: Anthropic.MessageParam[] = [...options.messages]
+
+    const system: Anthropic.TextBlockParam[] = [
+        { type: 'text', text: options.systemPrompt, cache_control: { type: 'ephemeral' } },
+        ...(options.customerId
+            ? [{ type: 'text' as const, text: customerContext(options.customerId) }]
+            : []),
+    ];
+
     const MAX_ITERATIONS = 10
     let iterations = 0
 
@@ -58,7 +87,7 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
         const params: Anthropic.MessageCreateParamsStreaming = {
             model,
             max_tokens: 8192,
-            system: options.systemPrompt,
+            system,
             tools,
             messages,
             stream: true
@@ -79,23 +108,31 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
         let currentToolName = ''
         let currentToolInputStr = ''
         let currentContentType = ''
+        let currentText = ''
 
         const assistantBlocks: Anthropic.ContentBlockParam[] = [];
 
         for await ( const event of stream) {
 
             if (event.type === 'content_block_start') {
-                currentContentType = event.content_block.type
-                yield {
-                    type: 'tool_start',
-                    tool: currentToolName,
-                    input: {}
+                currentContentType = event.content_block.type;
+
+                if (event.content_block.type === 'tool_use') {
+                    currentToolUseId = event.content_block.id
+                    currentToolName = event.content_block.name
+                    currentToolInputStr = ''
+                    yield {
+                        type: 'tool_start',
+                        tool: currentToolName,
+                        input: {}
+                    }
                 }
             }
 
             if (event.type === 'content_block_delta') {
 
                 if (event.delta.type === 'text_delta') {
+                    currentText += event.delta.text
                     fullResponse += event.delta.text;
                     yield {type: 'token', content: event.delta.text};
                 }
@@ -110,8 +147,8 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
 
 
             if (event.type === 'content_block_stop') {
-                if (currentContentType === 'text' && fullResponse) {
-                    assistantBlocks.push({type: 'text', text: fullResponse});
+                if (currentContentType === 'text' && currentText.trim()) {
+                    assistantBlocks.push({type: 'text', text: currentText});
                 }
 
                 if (currentContentType === 'thinking') {
@@ -136,6 +173,10 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
 
             if (event.type === 'message_delta' && event.usage) {
                 outputTokens += event.usage.output_tokens;
+                // Thinking tokens are a subset of output_tokens (the model's reasoning),
+                // reported separately under output_tokens_details. Calls without extended
+                // thinking won't have this field, hence the ?? 0.
+                thinkingTokens += event.usage.output_tokens_details?.thinking_tokens ?? 0;
             }
         }
 
@@ -146,10 +187,16 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
         }
 
         if (finalMessage.stop_reason === 'end_turn') {
+            log.info({ iteration: iterations, stopReason: finalMessage.stop_reason }, 'agent ended turn (no tool call)');
             break
         }
 
         if (finalMessage.stop_reason === 'tool_use') {
+            const toolNames = assistantBlocks
+                .filter(b => b.type === 'tool_use')
+                .map(b => (b as Anthropic.ToolUseBlockParam).name);
+
+            log.info({ iteration: iterations, tools: toolNames }, 'agent requested tools');
             const toolResultBlocks: Anthropic.ToolResultBlockParam[] = []
 
             for (const block of assistantBlocks) {
@@ -177,9 +224,10 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
                     }
 
                     if (guardrail.action === 'escalate') {
-                        outcome = 'escalate'
+                        outcome = 'escalated'
                     }
 
+                    log.warn({ tool: block.name, action: guardrail.action, reason: guardrail.reason }, 'tool blocked by guardrail');
                     yield {
                         type: 'tool_blocked',
                         tool: block.name,
@@ -191,8 +239,13 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
                     toolResultBlocks.push({
                         type: 'tool_result',
                         tool_use_id: block.id,
-                        content: JSON.stringify({ error: `Unknown tool: ${block.name}` }),
-                        is_error: true
+                        content: JSON.stringify({
+                            blocked: true,
+                            reason: guardrail.reason,
+                            action: guardrail.action,
+                            approvalId: approvalId ?? null,
+                            message: guardrail.action === 'queue_approval' ? `Action queued for approval (ID: ${approvalId}). Inform the customer it is pending review.` : `Action escalated: ${guardrail.reason}`
+                        })
                     })
 
                     continue
@@ -200,23 +253,24 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
 
                 const handler = handlers[block.name]
                 if (!handler) {
-                    if (!handler) {
+                    log.error({ tool: block.name }, 'unknown tool requested')
 
-                        toolResultBlocks.push({
-                            type: 'tool_result',
-                            tool_use_id: block.id,
-                            content: JSON.stringify({
-                                error: `Unknown tool: ${block.name}` }),
-                            is_error: true });
+                    toolResultBlocks.push({
+                        type: 'tool_result',
+                        tool_use_id: block.id,
+                        content: JSON.stringify({
+                            error: `Unknown tool: ${block.name}` }),
+                        is_error: true });
 
-                        continue
-                    }
+                    continue
                 }
 
                 const parsedResult = handler.schema.safeParse(toolInput)
                 if (!parsedResult.success) {
                     toolErrorCount++
                     const errMsg = parsedResult.error.issues.map(i => i.message).join(', ')
+
+                    log.warn({ tool: block.name, error: errMsg }, 'tool input failed schema validation');
                     yield {
                         type: 'tool_error',
                         tool: block.name,
@@ -236,6 +290,8 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
                 try {
                     const output = await handler.handler(parsedResult.data)
                     const durationMs = Date.now() - toolStart
+
+                    log.info({ tool: block.name, durationMs }, 'tool succeeded');
 
                     if (block.name === 'search_knowledge_base' && Array.isArray((output as any).chunks)) {
                         ragChunks.push(...(output as any).chunks)
@@ -258,11 +314,13 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
                     toolResultBlocks.push({
                         type: 'tool_result',
                         tool_use_id: block.id,
-                        content: JSON.stringify(output)
+                        content: JSON.stringify(output ?? { ok: true })
                     });
                 } catch (err) {
                     toolErrorCount++
                     const errMsg = err instanceof Error ? err.message : 'Tool execution failed'
+
+                    log.error({ tool: block.name, err: errMsg }, 'tool execution threw');
 
                     yield {
                         type: 'tool_error',
@@ -291,7 +349,7 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
         }
     }
 
-    const costUsdCents = estimateConstCents(model, inputTokens, outputTokens, thinkingTokens, cacheReadTokens)
+    const costUsdCents = estimateCostCents(model, inputTokens, outputTokens, thinkingTokens, cacheReadTokens)
     const confidence = computeConfidence({
         ragScores: ragChunks.map(c => c.score),
         toolCallCount: toolCalls.length,

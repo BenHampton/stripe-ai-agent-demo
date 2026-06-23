@@ -15,13 +15,13 @@ export const stripeTools: Record<string, RegisteredTool<any>> = {
                 properties: {
                     customer_id: {
                         type: 'string',
-                        description: 'Stripe customer ID (cus_..)'
+                        description: 'Stripe customer ID (cus_...)'
                     }
                 },
                 required: ['customer_id']
             },
         },
-        schema: z.object({ customer_id: z.string().startsWith('cuz_') }),
+        schema: z.object({ customer_id: z.string().startsWith('cus_') }),
         handler: async ({ customer_id }) => stripe.getCustomer(customer_id)
     },
 

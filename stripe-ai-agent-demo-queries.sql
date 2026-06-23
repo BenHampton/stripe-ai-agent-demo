@@ -18,6 +18,11 @@ FROM kb_chunks
 GROUP BY filename, category
 ORDER BY filename;
 
+-- To trim whitespace on existing message rows:
+UPDATE messages
+SET content = TRIM(content)
+WHERE content <> TRIM(content);
+
 
 -- Tables
 select * from agent_traces;
@@ -34,3 +39,6 @@ select * from pending_approvals;
 
 select * from workflows;
 
+
+-- delete all conversations and start over
+-- TRUNCATE messages, agent_traces, pending_approvals, workflows, conversations RESTART IDENTITY CASCADE;

@@ -4,7 +4,7 @@ import { getToken } from '@/api/client';
 
 // The four seed customers from Section 5 — used for the demo
 export const SEED_CUSTOMERS = [
-    { id: 'ALICE_CUSTOMER_ID', name: 'Alice', plan: 'Pro',        status: 'happy'         },
+    { id: 'cus_UixfvcJsEi2xxg', name: 'Alice', plan: 'Pro',        status: 'happy'         },
     { id: 'BOB_CUSTOMER_ID',   name: 'Bob',   plan: 'Starter',    status: 'at-risk'       },
     { id: 'CAROL_CUSTOMER_ID', name: 'Carol', plan: 'Pro',        status: 'payment-failed' },
     { id: 'DAVE_CUSTOMER_ID',  name: 'Dave',  plan: 'Enterprise', status: 'refund-seeker' },

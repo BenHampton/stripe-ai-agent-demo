@@ -156,10 +156,14 @@ async function seed() {
     //  6. Create Subscriptions ─
     console.log('Creating subscriptions...');
 
+    // No payment_behavior: 'default_incomplete' — the customers above already have
+    // a working default card (tok_visa) attached, so Stripe charges the first
+    // invoice immediately and the subscription becomes ACTIVE. With
+    // default_incomplete it would sit in 'incomplete' until a payment is confirmed,
+    // and the agent would (correctly) report "no active subscription".
     const aliceSub = await stripe.subscriptions.create({
         customer: alice.id,
         items: [{ price: proPrice.id }],
-        payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
     });
 
@@ -167,14 +171,12 @@ async function seed() {
         customer: bob.id,
         items: [{ price: starterPrice.id }],
         cancel_at_period_end: true, // Bob has already scheduled cancellation
-        payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
     });
 
     const daveSub = await stripe.subscriptions.create({
         customer: dave.id,
         items: [{ price: enterprisePrice.id }],
-        payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
     });
 

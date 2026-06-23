@@ -25,3 +25,9 @@ export const systemPrompts: Record<AgentType | 'triage', string> = {
     retention: `${BASE}\n\nRETENTION FOCUS: Handle cancellation risk. Understand why they want to leave. Available offer: RETENTION20 (20% off 3 months) for eligible customers. A graceful cancellation beats a forced retention.`,
     general:   `${BASE}\n\nGENERAL FOCUS: Handle inquiries that don't fit other categories. Use KB for policy questions.`,
 }
+
+export function customerContext(customerId: string): string {
+    return `CURRENT CUSTOMER: You are assisting customer ${customerId}. This identity is
+already established — never ask the customer for their customer ID or account number.
+Use your tools to look up their subscription, invoices, and account details directly.`;
+}

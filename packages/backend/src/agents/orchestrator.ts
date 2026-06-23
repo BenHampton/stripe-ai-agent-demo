@@ -4,7 +4,8 @@ import { runBillingAgent }   from './specialists/billing.js';
 import { runKnowledgeAgent } from './specialists/knowledge.js';
 import { runRetentionAgent } from './specialists/retention.js';
 import { runAgent }          from './core.js';
-import { systemPrompts }     from './prompts.js';
+import { agentLogger }       from '../lib/logger.js';
+import {systemPrompts} from './prompts.js';
 import type { AgentEvent }  from './core.js';
 
 export interface  OrchestratorParms {
@@ -15,7 +16,11 @@ export interface  OrchestratorParms {
 }
 
 export async function* orchestrate(params: OrchestratorParms): AsyncGenerator<AgentEvent | { type: 'triage', category: string, confidence: number}> {
+
+    const log = agentLogger(params.conversationId, 'orchestrator');
+
     const triage = await triageMessage(params.userMessage, params.history)
+    log.info({ category: triage.category, confidence: triage.confidence }, 'triage complete');
 
     yield {
         type: 'triage',
@@ -32,18 +37,30 @@ export async function* orchestrate(params: OrchestratorParms): AsyncGenerator<Ag
 
     }
 
-    switch (triage.category) {
-        case 'billing': yield* runBillingAgent({ ...base, useExtendedThinking })
-            break
-        case 'retention': yield* runRetentionAgent({ ...base, useExtendedThinking })
-            break
-        case 'knowledge': yield* runKnowledgeAgent(base)
-            break
-        default:
-            yield* runAgent({
-                agentType: 'general',
-                systemPrompt: systemPrompts.general,
-                ...base
-            })
+    try {
+        log.info({agent: triage.category, useExtendedThinking}, 'dispatching to specialist');
+
+        switch (triage.category) {
+            case 'billing':
+                yield* runBillingAgent({...base, useExtendedThinking})
+                break
+            case 'retention':
+                yield* runRetentionAgent({...base, useExtendedThinking})
+                break
+            case 'knowledge':
+                yield* runKnowledgeAgent(base)
+                break
+            default:
+                yield* runAgent({
+                    agentType: 'general',
+                    systemPrompt: systemPrompts.general,
+                    ...base
+                })
+        }
+    } catch (err) {
+        // Log with the error before re-throwing so the failure is visible in stdout
+        // even though the SSE stream will also surface it to the caller.
+        log.error({ agent: triage.category, err: err instanceof Error ? err.message : String(err) }, 'orchestration failed');
+        throw err;
     }
 }
