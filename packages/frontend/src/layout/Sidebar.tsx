@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router';
 import { MessageSquare, List, CheckSquare, BarChart2, Zap, LogOut } from 'lucide-react';
-import { useAuth } from '@/store/auth';
+import { useAuthStore } from '@/store/auth';
 
 const NAV = [
     { to: '/chat',          label: 'Chat',          Icon: MessageSquare },
@@ -11,7 +11,7 @@ const NAV = [
 ];
 
 export function Sidebar({ customerName }: { customerName: string }) {
-    const { logout } = useAuth();
+    const logout = useAuthStore((s) => s.logout);
     return (
         <nav className="fixed left-0 top-0 h-full w-56 bg-surface border-r border-border flex flex-col z-40">
             <div className="p-4 border-b border-border">

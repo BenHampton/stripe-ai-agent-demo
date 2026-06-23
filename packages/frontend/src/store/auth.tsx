@@ -1,15 +1,16 @@
-import { createContext, useContext, useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import { getToken } from '@/api/client';
 
-// The four seed customers from Section 5 — used for the demo
+// The four seed customers from Section 5 — used for the demo picker.
+// Replace *_CUSTOMER_ID with the real cus_... IDs (run: pnpm --filter @sai/backend check:stripe).
 export const SEED_CUSTOMERS = [
     { id: 'cus_UixfvcJsEi2xxg', name: 'Alice', plan: 'Pro',        status: 'happy'         },
     { id: 'BOB_CUSTOMER_ID',   name: 'Bob',   plan: 'Starter',    status: 'at-risk'       },
     { id: 'CAROL_CUSTOMER_ID', name: 'Carol', plan: 'Pro',        status: 'payment-failed' },
-    { id: 'DAVE_CUSTOMER_ID',  name: 'Dave',  plan: 'Enterprise', status: 'refund-seeker' },
+    { id: 'DAVE_CUSTOMER_ID',  name: 'Dave',  plan: 'Enterprise', status: 'refund-seeker'  },
 ] as const;
-// Note: Replace *_CUSTOMER_ID with actual cus_... IDs from your Stripe seed output
 
 interface AuthState {
     customerId:   string | null;
@@ -20,42 +21,47 @@ interface AuthState {
     logout:       () => void;
 }
 
-const AuthContext = createContext<AuthState>(null!);
+// Zustand store. Replaces the old Context + scattered localStorage calls:
+//  - State is global and reactive — no Provider needed in main.tsx.
+//  - The persist middleware handles storage declaratively (one config) instead of
+//    manual getItem/setItem strewn across the component.
+//  - partialize persists ONLY identity (customerId/name) — never transient UI state
+//    like isLoading/error, which should always reset on reload.
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set) => ({
+            customerId:   null,
+            customerName: null,
+            isLoading:    false,
+            error:        null,
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-    const storedId   = localStorage.getItem('customer_id');
-    const storedName = localStorage.getItem('customer_name');
+            selectCustomer: async (id, name) => {
+                set({ isLoading: true, error: null });
+                try {
+                    await getToken(id); // fetch + store the agent token (see api/client)
+                    set({ customerId: id, customerName: name, isLoading: false });
+                } catch (err) {
+                    set({ error: err instanceof Error ? err.message : 'Auth failed', isLoading: false });
+                }
+            },
 
-    const [customerId,   setCustomerId]   = useState<string | null>(storedId);
-    const [customerName, setCustomerName] = useState<string | null>(storedName);
-    const [isLoading,    setIsLoading]    = useState(false);
-    const [error,        setError]        = useState<string | null>(null);
+            logout: () => set({ customerId: null, customerName: null, error: null }),
+        }),
+        {
+            name: 'sai-auth', // localStorage key
+            storage: createJSONStorage(() => localStorage),
+            partialize: (state) => ({ customerId: state.customerId, customerName: state.customerName }),
+        },
+    ),
+);
 
-    const selectCustomer = useCallback(async (id: string, name: string) => {
-        setIsLoading(true); setError(null);
-        try {
-            await getToken(id);
-            localStorage.setItem('customer_name', name);
-            setCustomerId(id); setCustomerName(name);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Auth failed');
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    const logout = useCallback(() => {
-        localStorage.removeItem('agent_token');
-        localStorage.removeItem('customer_id');
-        localStorage.removeItem('customer_name');
-        setCustomerId(null); setCustomerName(null);
-    }, []);
-
-    return (
-        <AuthContext.Provider value={{ customerId, customerName, isLoading, error, selectCustomer, logout }}>
-            {children}
-        </AuthContext.Provider>
-    );
-}
-
-export const useAuth = () => useContext(AuthContext);
+// Consume with narrow selectors so each component re-renders only when the slice
+// it actually reads changes:
+//   const customerId = useAuthStore((s) => s.customerId);   // single field
+//   const logout     = useAuthStore((s) => s.logout);       // single action
+// When a component genuinely needs several fields, group them with useShallow so it
+// re-renders only when one of THOSE changes (see AppShell's customer picker):
+//   const { isLoading, error, selectCustomer } = useAuthStore(
+//     useShallow((s) => ({ isLoading: s.isLoading, error: s.error, selectCustomer: s.selectCustomer })),
+//   );
+// Avoid selecting the whole store object — that re-renders on every state change.

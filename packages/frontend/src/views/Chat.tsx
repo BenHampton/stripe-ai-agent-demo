@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Trash2, Brain } from 'lucide-react';
-import { useAuth } from '@/store/auth';
+import { useAuthStore} from '@/store/auth';
 import { useChatStream } from '@/api/sse';
 import { ToolBadge } from '@/components/ToolBadge';
 
@@ -12,7 +12,10 @@ const AGENT_COLORS: Record<string, string> = {
 };
 
 export function Chat() {
-    const { customerId, customerName } = useAuth();
+    // const { customerId, customerName } = useAuth();
+    const customerId = useAuthStore((s) => s.customerId);
+    const customerName = useAuthStore((s) => s.customerName);
+
     const { messages, toolStatuses, thinkingChunks, triageCategory, triageConfidence,
         isStreaming, error, sendMessage, clearChat } = useChatStream(customerId!);
 

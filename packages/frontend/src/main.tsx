@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router';
-import { AuthProvider } from '@/store/auth';
 import { AppShell } from '@/layout/AppShell';
 import { Chat }             from '@/views/Chat';
 import { Conversations }    from '@/views/Conversations';
@@ -17,7 +16,7 @@ import './index.css';
 const router = createBrowserRouter([
     {
         path: '/',
-        element: <AuthProvider><AppShell /></AuthProvider>,
+        element: <AppShell />, // no provider needed - Zustand store is global
         children: [
             { index: true,         element: <Navigate to='/chat' replace /> },
             { path: 'chat',           element: <Chat /> },

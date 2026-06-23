@@ -1,10 +1,21 @@
 import { Outlet } from 'react-router';
 import { Sidebar } from './Sidebar';
-import { useAuth, SEED_CUSTOMERS } from '@/store/auth';
+import { useAuthStore, SEED_CUSTOMERS } from '@/store/auth';
 import { Loader2 } from 'lucide-react';
 
 export function AppShell() {
-    const { customerId, customerName, isLoading, error, selectCustomer } = useAuth();
+
+    // Plain field reads. AppShell is a top-level layout component and the auth store
+    // changes ~twice a session (select / logout), so a re-render here is effectively
+    // free — useShallow would guard against churn that doesn't happen. Reach for a
+    // useShallow group selector only when a component reads multiple fields from a
+    // FREQUENTLY-changing store; here it would just be ceremony.
+    const customerId     = useAuthStore((s) => s.customerId);
+    const customerName   = useAuthStore((s) => s.customerName);
+    const isLoading      = useAuthStore((s) => s.isLoading);
+    const error          = useAuthStore((s) => s.error);
+    const selectCustomer = useAuthStore((s) => s.selectCustomer);
+
 
     // If no customer is selected, show the customer picker
     if (!customerId) {
