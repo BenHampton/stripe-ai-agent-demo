@@ -1,0 +1,27 @@
+# Routing rules — ordered, first-match-wins. Edit here without touching code.
+# Patterns are regex strings (case-insensitive); the loader validates + compiles them.
+- category: retention
+  confidence: 0.9
+  reason: cancellation intent matched
+  patterns:
+    - '\bcancel\b'
+    - '\bunsubscribe\b'
+    - '\bdowngrade\b'
+    - '\bclose my account\b'
+- category: billing
+  confidence: 0.9
+  reason: billing intent matched
+  patterns:
+    - '\brefund\b'
+    - '\binvoice'
+    - '\bcharged?\b'
+    - '\bpayment\b'
+    - '\bbilling\b'
+- category: knowledge
+  confidence: 0.85
+  reason: informational question matched
+  patterns:
+    - '\bhow do i\b'
+    - '\bwhat (is|are)\b'
+    - '\bpolicy\b'
+    - '\bdoes .* support\b'

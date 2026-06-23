@@ -16,6 +16,10 @@ const envSchema = z.object({
     // Port the Hono server binds to. Coerced from string → number.
     PORT: z.string().regex(/^\d+$/).transform(Number).default(3000),
 
+    // Routing strategy: 'llm' uses the Haiku triage classifier (flexible, costs a call);
+    // 'rules' uses the deterministic rules gate (free, instant, but only catches obvious cases).
+    TRIAGE_MODE: z.enum(['llm', 'rules']).default('llm'),
+
     // Database
     // Neon connection string or local Postgres URL from docker-compose
     // Format: postgresql://user:password@host:5432/dbname?sslmode=require

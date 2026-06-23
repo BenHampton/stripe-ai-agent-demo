@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { triageMessage, shouldUseExtendedThinking } from './triage.js';
+import { triageMessage, shouldUseExtendedThinking, TriageResult } from './triage.js';
+import { rulesTriage } from './rules-gate.js';
 import { runBillingAgent }   from './specialists/billing.js';
 import { runKnowledgeAgent } from './specialists/knowledge.js';
 import { runRetentionAgent } from './specialists/retention.js';
@@ -7,6 +8,7 @@ import { runAgent }          from './core.js';
 import { agentLogger }       from '../lib/logger.js';
 import {systemPrompts} from './prompts.js';
 import type { AgentEvent }  from './core.js';
+import {env} from "@sai/shared";
 
 export interface  OrchestratorParms {
     userMessage: string
@@ -15,22 +17,28 @@ export interface  OrchestratorParms {
     history: Anthropic.MessageParam[]
 }
 
+// Pick the routing strategy from config. Returns the same TriageResult either way,
+// plus a 'strategy' tag so traces show HOW the routing decision was made.
+async function selectTriage(
+    userMessage: string,
+    history: Anthropic.MessageParam[],
+): Promise<TriageResult & { strategy: 'llm' | 'rules' }> {
+    if (env.TRIAGE_MODE === 'rules') {
+        return { ...rulesTriage(userMessage), strategy: 'rules' };  // no API call
+    }
+    return { ...(await triageMessage(userMessage, history)), strategy: 'llm' };
+}
+
+
 export async function* orchestrate(params: OrchestratorParms): AsyncGenerator<AgentEvent | { type: 'triage', category: string, confidence: number}> {
 
     const log = agentLogger(params.conversationId, 'orchestrator');
-
-    const triage = await triageMessage(params.userMessage, params.history)
-    log.info({
-            category: triage.category,
-            confidence: triage.confidence,
-            reason: triage.reason },
-        'triage complete');
-
-    yield {
-        type: 'triage',
-        category: triage.category,
-        confidence: triage.confidence
-    }
+    const triage = await selectTriage(params.userMessage, params.history);
+    log.info(
+        { strategy: triage.strategy, category: triage.category, confidence: triage.confidence, reason: triage.reason },
+        'triage complete',
+    );
+    yield { type: 'triage', category: triage.category, confidence: triage.confidence };
 
     const messages: Anthropic.MessageParam[] = [...params.history, { role: 'user', content: params.userMessage }]
     const useExtendedThinking = shouldUseExtendedThinking(triage.category, params.userMessage)
@@ -38,7 +46,6 @@ export async function* orchestrate(params: OrchestratorParms): AsyncGenerator<Ag
         messages,
         conversationId: params.conversationId,
         customerId: params.customerId,
-
     }
 
     try {
