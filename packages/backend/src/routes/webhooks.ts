@@ -3,6 +3,7 @@ import { env, getDb, conversations, messages, agentTraces } from '@sai/shared';
 import { eq } from 'drizzle-orm';
 import { constructWebhookEvent } from '../services/stripe.js';
 import { orchestrate } from '../agents/orchestrator.js';
+import { logger, requestLogger } from '../lib/logger.js';
 import type { AgentTrace } from '../agents/core.js';
 
 export const webhooksRouter = new Hono()
@@ -55,9 +56,17 @@ webhooksRouter.post('/', async (c) => {
     try {
         event = constructWebhookEvent(rawBody, sig, env.STRIPE_WEBHOOK_SECRET)
     } catch (err) {
-        console.error('Webhook sig failed:', err)
+        logger.warn(
+            { err: err instanceof Error ? err.message : String(err) },
+            'webhook signature verification failed'
+        )
+
         return c.json({ error: 'Invalid signature' })
     }
+
+    // Signature verified — log every authentic webhook. These are autonomous,
+    // money-related events with no user watching, so visibility here is critical.
+    logger.info({ eventType: event.type, eventId: event.id }, 'stripe webhook received');
 
     const db = getDb(env.DATABASE_URL)
 
@@ -67,6 +76,11 @@ webhooksRouter.post('/', async (c) => {
         .where(eq(conversations.stripeEventId, event.id))
         .limit(1)
     if (existing.length > 0) {
+        logger.info(
+            { eventType: event.type, eventId: event.id },
+            'webhook already processed — skipping (idempotent)'
+        )
+
         return c.json({ received: true, status: 'already_processed'})
     }
 
@@ -97,13 +111,26 @@ webhooksRouter.post('/', async (c) => {
             content: agentInput.message
         })
 
-    // Return 200 immediately, process agent to avoid String timeout
+    // Return 200 immediately — process agent async to avoid Stripe timeout
+    setImmediate(() =>
+        processWebhookAsync(conversationId, agentInput, db).catch((err) =>
+            // This runs AFTER we've already 200'd to Stripe, so a failure here is invisible
+            // unless we log it. The agent ran autonomously on a money event and threw —
+            // this is exactly the silent failure that needs a loud, structured error.
+            requestLogger(conversationId, agentInput.customerId).error(
+                { eventType: event.type, err: err instanceof Error ? err.message : String(err) },
+                'async webhook processing failed',
+            ),
+        ),
+    )
 
-    setImmediate(() => processWebhookAsync(conversationId, agentInput, db).catch(console.error))
     return c.json({ received: true, conversationId })
 })
 
 async function processWebhookAsync(conversationId: string, agentInput: { message: string; customerId: string }, db: ReturnType<typeof getDb>) {
+    const log = requestLogger(conversationId, agentInput.customerId);
+    log.info('webhook agent processing started');
+
     let lastTrace: AgentTrace | undefined; let fullResponse = '';
 
     for await (const event of orchestrate({ userMessage: agentInput.message, conversationId, customerId: agentInput.customerId, history: [] })) {
@@ -123,7 +150,7 @@ async function processWebhookAsync(conversationId: string, agentInput: { message
     }
     if (lastTrace) {
         await db.insert(agentTraces)
-            .values({ conversationId, agentType: 'billing', ...lastTrace });
+            .values({ conversationId, ...lastTrace });
         await db.update(conversations)
             .set({
                 status: lastTrace.outcome === 'pending_approval' ? 'pending_approval' : 'resolved',

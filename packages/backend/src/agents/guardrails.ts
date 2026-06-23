@@ -1,4 +1,5 @@
 import { env, getDb, pendingApprovals } from '@sai/shared';
+import { agentLogger } from '../lib/logger.js';
 import type { AgentType } from '../tools/registry.js';
 
 // Thresholds Must match knowledge-base/refund-policy.md
@@ -87,9 +88,25 @@ export async function runGuardrail(
             return { result: { allowed: true } };
     }
 
+    // Audit trail for the money-safety boundary. A blocked or queued money action is
+    // security-relevant — log it at warn so it's easy to find. (Allowed actions are
+    // already visible via the tool-success logs in core.ts, so we don't double-log them.)
+    const log = agentLogger(conversationId, agentType);
+    if (!guardrailResult.allowed) {
+        log.warn(
+            { tool: toolName, action: guardrailResult.action, reason: guardrailResult.reason },
+            'guardrail blocked a money action',
+        );
+    }
+
     if (!guardrailResult.allowed && guardrailResult.action === 'queue_approval') {
         const approvalId = await createApprovalEntry({ conversationId, agentType, action: toolName, params: toolInput, reasoning: agentReasoning ?? 'No reasoning provided' });
-        return { result: guardrailResult, approvalId };
+
+        log.info({ tool: toolName, approvalId }, 'approval queued for human review');
+        return {
+            result: guardrailResult,
+            approvalId
+        };
     }
 
     return { result: guardrailResult };

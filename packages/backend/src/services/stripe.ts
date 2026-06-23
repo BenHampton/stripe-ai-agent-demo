@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { env } from '@sai/shared'
+import { logger } from '../lib/logger.js';
 
 export const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
     apiVersion: '2026-05-27.dahlia',
@@ -86,7 +87,11 @@ export interface IssueRefundParams {
 }
 
 export async function issueRefund(params: IssueRefundParams) {
-    return stripe.refunds.create(
+    // Money out the door — log the successful refund as an audit record. Failures
+    // propagate to the caller (and are logged by the agent loop in core.ts), so we
+    // only need the positive "this actually executed at Stripe" record here.
+
+    const refund = await stripe.refunds.create(
         {
             charge: params.chargeId,
             amount: params.amountCents,
@@ -99,6 +104,13 @@ export async function issueRefund(params: IssueRefundParams) {
             idempotencyKey: idempotencyKey(`refund-${params.chargeId}`, params.conversationId),
         },
     );
+
+    logger.info(
+        { refundId: refund.id, chargeId: params.chargeId, amountCents: params.amountCents, conversationId: params.conversationId },
+        'refund issued at stripe',
+    )
+
+    return refund
 }
 
 // Discount / Retention Operations

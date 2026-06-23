@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import { logger } from '../lib/logger.js';
 import { env, getDb, workflows } from '@sai/shared';
 import type { WorkflowStep } from '@sai/shared';
 
@@ -46,12 +47,20 @@ export async function runWorkflow<TCtx extends Record<string, unknown>>(
         throw new Error('Failed to create workflow record');
     }
 
+    // Saga logging: a multi-step workflow with compensation is the hardest thing to
+    // debug after the fact. Log each step boundary and every compensation so a partial
+    // failure (step 3 of 5 failed, did the rollback work?) is fully reconstructable.
+    const log = logger.child({ conversationId, workflowId: workflow.id, type: def.type });
+    log.info({ type: def.type, stepCount: def.steps.length }, 'workflow started');
+
+
     let ctx = { ...initialCtx };
     const completedSteps: { index: number; compensate?: (ctx: TCtx) => Promise<void> }[] = [];
 
     try {
         for (let i = 0; i < def.steps.length; i++) {
             const step = def.steps[i]!;
+            log.info({ step: step.name, index: i }, 'workflow step started');
 
             // Mark step as running
             await db.update(workflows).set({
@@ -66,7 +75,9 @@ export async function runWorkflow<TCtx extends Record<string, unknown>>(
             ctx = { ...ctx, ...result };
 
             // Mark step as completed and record it for potential compensation
+            log.info({ step: step.name, index: i }, 'workflow step completed');
             completedSteps.push({ index: i, ...(step.compensate ? { compensate: step.compensate } : {}) });
+
             await db.update(workflows).set({
                 steps: workflow.steps.map((s, idx) =>
                     idx === i ? { ...s, status: 'completed', result, completedAt: new Date().toISOString() } : s
@@ -76,15 +87,23 @@ export async function runWorkflow<TCtx extends Record<string, unknown>>(
         }
 
         // All steps succeeded
-        await db.update(workflows).set({
-            status:      'completed',
-            completedAt: new Date(),
-        }).where(eq(workflows.id, workflow.id));
+        log.info('workflow completed');
+        await db.update(workflows)
+            .set({
+                status:'completed',
+                completedAt: new Date(),
+            })
+            .where(eq(workflows.id, workflow.id));
 
         return ctx;
 
     } catch (err) {
         // A step failed — compensate completed steps in reverse order
+        log.error(
+            { err: err instanceof Error ? err.message : String(err), completedSteps: completedSteps.length },
+            'workflow step failed — compensating',
+        )
+
         await db.update(workflows).set({ status: 'compensating' }).where(eq(workflows.id, workflow.id));
 
         for (const { index, compensate } of [...completedSteps].reverse()) {
@@ -93,7 +112,10 @@ export async function runWorkflow<TCtx extends Record<string, unknown>>(
                     await compensate(ctx);
                 } catch (compErr) {
                     // Log but continue compensating other steps
-                    console.error(`Compensation failed for step ${index}:`, compErr);
+                    log.error(
+                        { step: index, err: compErr instanceof Error ? compErr.message : String(compErr) },
+                        'compensation failed - manual repair may be needed'
+                    )
                 }
             }
         }
@@ -103,6 +125,7 @@ export async function runWorkflow<TCtx extends Record<string, unknown>>(
             error:  err instanceof Error ? err.message : 'Unknown error',
         }).where(eq(workflows.id, workflow.id));
 
+        log.warn('workflow compensated (rolled back)');
         throw err; // re-throw so the caller knows the workflow failed
     }
 }
