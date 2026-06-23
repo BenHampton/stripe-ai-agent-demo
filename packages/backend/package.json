@@ -15,6 +15,7 @@
     "test:coverage": "vitest run --coverage",
     "ingest": "tsx --env-file=../../.env src/scripts/ingest.ts",
     "seed:stripe": "tsx --env-file=../../.env src/scripts/seed-stripe.ts",
+    "check:stripe": "tsx --env-file=../../.env src/scripts/check-stripe-accounts.ts",
     "test-retrieval": "tsx --env-file=../../.env src/scripts/test-retrieval.ts"
   },
   "dependencies": {

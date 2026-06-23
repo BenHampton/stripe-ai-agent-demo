@@ -11,11 +11,38 @@
  * before creating new ones.
  */
 import { stripe } from '../services/stripe.js';
+import type Stripe from 'stripe';
+
+// Create a subscription and ensure it lands ACTIVE. In test mode a default card
+// (tok_visa) is attached to the customer, so the first invoice normally charges
+// immediately — but Stripe can still return the subscription as 'incomplete' if the
+// invoice isn't auto-paid synchronously. This helper pays the open invoice to drive
+// activation, so the seed always ends with a usable active subscription and you never
+// have to manually pay an invoice afterward. (trialing also counts as ready-to-use.)
+async function createActiveSubscription(
+    params: Stripe.SubscriptionCreateParams,
+): Promise<Stripe.Subscription> {
+    const sub = await stripe.subscriptions.create({
+        ...params,
+        expand: ['latest_invoice.payment_intent'],
+    });
+
+    if (sub.status === 'active' || sub.status === 'trialing') {
+        return sub;
+    }
+
+    const inv = sub.latest_invoice;
+    if (inv && typeof inv !== 'string' && inv.status !== 'paid') {
+        await stripe.invoices.pay(inv.id as string);
+    }
+
+    return stripe.subscriptions.retrieve(sub.id);
+}
 
 async function seed() {
-    console.log('Seeding Stripe test data...');
+    console.log('🌱 Seeding Stripe test data...');
 
-    //  1. Create Products 
+    // 1. Create Products
     console.log('Creating products...');
 
     const starterProduct = await stripe.products.create({
@@ -40,7 +67,7 @@ async function seed() {
     console.log(`  ✓ Pro:        ${proProduct.id}`);
     console.log(`  ✓ Enterprise: ${enterpriseProduct.id}`);
 
-    //  2. Create Prices 
+    // 2. Create Prices
     console.log('Creating prices...');
 
     const starterPrice = await stripe.prices.create({
@@ -74,7 +101,7 @@ async function seed() {
     console.log(`  ✓ Pro $79/mo:         ${proPrice.id}`);
     console.log(`  ✓ Enterprise $299/mo: ${enterprisePrice.id}`);
 
-    //  3. Create a retention coupon 
+    // 3. Create a retention coupon
     const retentionCoupon = await stripe.coupons.create({
         id: 'RETENTION20',
         percent_off: 20,
@@ -82,34 +109,42 @@ async function seed() {
         duration_in_months: 3,
         name: 'Retention - 20% off for 3 months',
     });
-    console.log(`
-  ✓ Retention coupon: ${retentionCoupon.id} (20% off for 3 months)`);
+    console.log(`✓ Retention coupon: ${retentionCoupon.id} (20% off for 3 months)`);
 
-    //  4. Create Test Customers 
+    // 4. Create Test Customers
     console.log('Creating customers...');
 
-    // Happy path — active Pro subscriber, no issues
+    // DEMO: Alice — the happy-path customer. Active Pro subscriber, no issues.
+    // Use her for normal chat demos: "what is my subscription?", "show my invoices".
+    // The general/billing agents answer directly from Stripe with no guardrail friction.
     const alice = await stripe.customers.create({
         email: 'alice@example.com',
         name: 'Alice Johnson',
         metadata: { test_persona: 'happy_pro_customer' },
     });
 
-    // At-risk — wants to cancel, good retention candidate
+    // DEMO: Bob — the retention scenario. Starter plan, already set to cancel at
+    // period end. Use him to demo the retention agent: "I want to cancel" should
+    // trigger a save offer (the RETENTION20 coupon) before processing the cancel.
     const bob = await stripe.customers.create({
         email: 'bob@example.com',
         name: 'Bob Smith',
         metadata: { test_persona: 'at_risk_starter' },
     });
 
-    // Payment issues — will trigger failed payment webhook scenario
+    // DEMO: Carol — the failed-payment scenario. Her card attaches but fails on
+    // charge. Use with the Stripe CLI (stripe trigger payment_intent.payment_failed)
+    // to demo the autonomous webhook → dunning/notification flow.
     const carol = await stripe.customers.create({
         email: 'carol@example.com',
         name: 'Carol Davis',
         metadata: { test_persona: 'payment_failure' },
     });
 
-    // Enterprise — large refund scenario (triggers approval queue)
+    // DEMO: Dave — the human-in-the-loop scenario. Enterprise customer; a large
+    // refund request exceeds the agent's autonomous limit and gets routed to the
+    // approval queue. Use him to demo guardrails: "I want a full refund" → pending
+    // approval (check the Approvals tab to approve/deny).
     const dave = await stripe.customers.create({
         email: 'dave@example.com',
         name: 'Dave Wilson',
@@ -128,11 +163,14 @@ async function seed() {
 
     // Attach a fresh success card to each of Alice, Bob, Dave
     for (const customer of [alice, bob, dave]) {
+
         const card = await stripe.paymentMethods.create({
             type: 'card',
             card: { token: 'tok_visa' }, // Always succeeds
         });
+
         await stripe.paymentMethods.attach(card.id, { customer: customer.id });
+
         await stripe.customers.update(customer.id, {
             invoice_settings: { default_payment_method: card.id },
         });
@@ -148,12 +186,14 @@ async function seed() {
         type: 'card',
         card: { token: 'tok_chargeCustomerFail' }, // Attaches OK, fails on charge
     });
+
     await stripe.paymentMethods.attach(carolCard.id, { customer: carol.id });
+
     await stripe.customers.update(carol.id, {
         invoice_settings: { default_payment_method: carolCard.id },
     });
 
-    //  6. Create Subscriptions ─
+    // 6. Create Subscriptions ─
     console.log('Creating subscriptions...');
 
     // No payment_behavior: 'default_incomplete' — the customers above already have
@@ -161,23 +201,20 @@ async function seed() {
     // invoice immediately and the subscription becomes ACTIVE. With
     // default_incomplete it would sit in 'incomplete' until a payment is confirmed,
     // and the agent would (correctly) report "no active subscription".
-    const aliceSub = await stripe.subscriptions.create({
+    const aliceSub = await createActiveSubscription({
         customer: alice.id,
         items: [{ price: proPrice.id }],
-        expand: ['latest_invoice.payment_intent'],
     });
 
-    const bobSub = await stripe.subscriptions.create({
+    const bobSub = await createActiveSubscription({
         customer: bob.id,
         items: [{ price: starterPrice.id }],
-        cancel_at_period_end: true, // Bob has already scheduled cancellation
-        expand: ['latest_invoice.payment_intent'],
+        cancel_at_period_end: true, // Bob: active, but scheduled to cancel (retention demo)
     });
 
-    const daveSub = await stripe.subscriptions.create({
+    const daveSub = await createActiveSubscription({
         customer: dave.id,
         items: [{ price: enterprisePrice.id }],
-        expand: ['latest_invoice.payment_intent'],
     });
 
     console.log(`  ✓ Alice → Pro sub:        ${aliceSub.id}`);
@@ -187,7 +224,7 @@ async function seed() {
     // 7. Summary
     console.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Stripe seed complete!
+✅ Stripe seed complete!
 
 Add these to your .env for testing:
 
