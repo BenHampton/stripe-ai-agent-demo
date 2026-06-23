@@ -18,23 +18,27 @@ export type AgentEvent =
 | { type: 'done', response: string; trace: AgentTrace }
 
 export interface AgentTrace {
-    toolCalls: ToolCall[],
-    ragChunks: RagChunk[],
+    agentType: AgentType
+    toolCalls: ToolCall[]
+    ragChunks: RagChunk[]
     thinkingBlocks: ThinkingBlock[]
-    confidence: number,
-    inputTokens: number,
+    confidence: number
+    inputTokens: number
     outputTokens: number
-    thinkingTokens: number,
-    cacheReadTokens: number,
+    thinkingTokens: number
+    cacheReadTokens: number
     costUsdCents: number
-    durationMs: number,
+    durationMs: number
     outcome: string
 }
 
 export interface AgentRunOptions {
-    agentType: AgentType, systemPrompt: string
-    messages: Anthropic.MessageParam[], conversationId: string
-    customerId?: string, useExtendedThinking?: boolean
+    agentType: AgentType
+    messages: Anthropic.MessageParam[]
+    systemPrompt: string
+    conversationId: string
+    customerId?: string
+    useExtendedThinking?: boolean
 }
 
 function estimateCostCents(model: string, input: number, output: number, thinking: number, cache: number): number {
@@ -362,6 +366,7 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
         type: 'done',
         response: fullResponse,
         trace: {
+            agentType: options.agentType,
             toolCalls,
             ragChunks,
             thinkingBlocks,

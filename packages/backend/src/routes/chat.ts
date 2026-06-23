@@ -24,7 +24,10 @@ chatRouter.post('/stream',
 
         // Create or resume conversation
         if (!conversationId) {
-            const result = await db.insert(conversations).values({ customerId, channel: 'chat', status: 'active' }).returning();
+            const result = await db.insert(conversations)
+                .values({ customerId, channel: 'chat', status: 'active' })
+                .returning();
+
             conversationId = result[0]!.id;
         }
 
@@ -39,7 +42,8 @@ chatRouter.post('/stream',
         await db.insert(messages).values({ conversationId, role: 'user', content: message });
 
         return streamSSE(c, async (stream) => {
-            let fullResponse = ''; let lastTrace: AgentTrace | undefined;
+            let fullResponse = ''
+            let lastTrace: AgentTrace | undefined
 
             // Send conversation ID first so client can track the session
             await stream.writeSSE({ event: 'init', data: JSON.stringify({ conversationId }) });
@@ -49,7 +53,7 @@ chatRouter.post('/stream',
                     await stream.writeSSE({ event: 'triage', data: JSON.stringify({ category: event.category, confidence: event.confidence }) });
                 }
                 else if (event.type === 'token') {
-                    await stream.writeSSE({ event: 'token', data: event.content });
+                    await stream.writeSSE({ event: 'token', data: JSON.stringify(event.content) });
 
                 }
                 else if (event.type === 'tool_start')  {
@@ -62,7 +66,7 @@ chatRouter.post('/stream',
                     await stream.writeSSE({ event: 'tool_blocked', data: JSON.stringify({ tool: event.tool, reason: event.reason, approvalId: event.approvalId }) });
                 }
                 else if (event.type === 'thinking') {
-                    await stream.writeSSE({ event: 'thinking',    data: event.content });
+                    await stream.writeSSE({ event: 'thinking', data: JSON.stringify(event.content) });
                 }
                 else if (event.type === 'done') {
                     fullResponse = event.response; lastTrace = event.trace;
@@ -77,7 +81,7 @@ chatRouter.post('/stream',
 
             if (lastTrace) {
                 await db.insert(agentTraces)
-                    .values({ conversationId, agentType: 'billing', ...lastTrace });
+                    .values({ conversationId, ...lastTrace });
 
                 await db.update(conversations)
                     .set({ status: lastTrace.outcome === 'pending_approval' ? 'pending_approval' : 'resolved', resolvedAt: new Date() })

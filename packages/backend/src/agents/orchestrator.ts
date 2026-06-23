@@ -20,7 +20,11 @@ export async function* orchestrate(params: OrchestratorParms): AsyncGenerator<Ag
     const log = agentLogger(params.conversationId, 'orchestrator');
 
     const triage = await triageMessage(params.userMessage, params.history)
-    log.info({ category: triage.category, confidence: triage.confidence }, 'triage complete');
+    log.info({
+            category: triage.category,
+            confidence: triage.confidence,
+            reason: triage.reason },
+        'triage complete');
 
     yield {
         type: 'triage',

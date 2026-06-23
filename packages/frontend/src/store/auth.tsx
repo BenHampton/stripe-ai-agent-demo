@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { useShallow } from 'zustand/react/shallow';
 import { getToken } from '@/api/client';
 
 // The four seed customers from Section 5 — used for the demo picker.

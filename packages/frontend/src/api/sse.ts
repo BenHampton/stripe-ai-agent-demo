@@ -81,38 +81,39 @@ export function useChatStream(customerId: string) {
                 const lines = buffer.split('\n');
                 buffer = lines.pop() ?? '';
 
-                // Use indexed loop — for-of + indexOf would find the FIRST occurrence
+                // Use indexed loop - for-of + indexOf would find the FIRST occurrence
                 // of each line string, giving the wrong dataLine when event types repeat.
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
-                    if (!line) continue; // noUncheckedIndexedAccess: lines[i] is string | undefined
-                    if (line.startsWith('event: ')) {
-                        const eventType = line.slice(7).trim();
-                        const dataLine = lines[i + 1] ?? '';
-                        const rawData = dataLine.startsWith('data: ') ? dataLine.slice(6) : '';
 
-                        try {
-                            const parsed = JSON.parse(rawData);
-                            const event: SSEEvent = { type: eventType as any, data: parsed };
-                            handleEvent(event);
-                        } catch {
-                            // token events carry plain-text data (not JSON) so JSON.parse throws.
-                            // assistantContent accumulates synchronously in the outer scope;
-                            // we slice off the last message if it's already assistant (replace it),
-                            // otherwise append a new assistant message.
-                            if (eventType === 'token') {
-                                assistantContent += rawData;
-                                setState(prev => ({
-                                    ...prev,
-                                    messages: [
-                                        ...prev.messages.slice(0, -1),
-                                        ...(prev.messages.at(-1)?.role === 'assistant'
-                                            ? [{ role: 'assistant' as const, content: assistantContent }]
-                                            : [prev.messages.at(-1)!, { role: 'assistant' as const, content: assistantContent }]),
-                                    ],
-                                }));
-                            }
-                        }
+                    if (!line  || !line.startsWith('event: ')) {
+                        continue; // noUncheckedIndexedAccess: lines[i] is string | undefined
+                    }
+
+                    const eventType = line.slice(7).trim();
+                    const dataLine = lines[i + 1] ?? '';
+
+                    if (!dataLine.startsWith('data: ')) {
+                        continue
+                    }
+
+                    // Every event's data is JSON-encoded on the backend (including token and
+                    // thinking text), so a token containing newlines, spaces, or JSON-looking
+                    // characters survives transport intact. Parse unconditionally and route by
+                    // event type — never by "did JSON.parse succeed", which mis-handled numeric
+                    // and multi-line tokens and dropped characters.
+                    const data = JSON.parse(dataLine.slice(6))
+
+                    if (eventType === 'token') {
+                        assistantContent += data as string;
+                        setState(prev => ({
+                            ...prev,
+                            messages: prev.messages.at(-1)?.role === 'assistant'
+                                ? [...prev.messages.slice(0, -1), { role: 'assistant' as const, content: assistantContent }]
+                                : [...prev.messages, { role: 'assistant' as const, content: assistantContent }],
+                        }));
+                    } else {
+                        handleEvent({ type: eventType as any, data });
                     }
                 }
             }
