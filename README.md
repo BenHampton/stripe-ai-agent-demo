@@ -85,14 +85,17 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 - CLI
   - install via brew `brew install stripe/stripe-cli/stripe`
   - run `stripe login`
-- purge all test data:
-  - go to https://dashboard.stripe.com/test/developers
-  - find Delete all test data
+
+#### Clear Stripe Test Data (script | cli | manual)
+- Script: run `pnpm --filter @sai/backend clear:stripe`
 - CLI: purge all test data: `stripe fixtures delete --all`
+- Manual: purge all test data:
+  - go to https://dashboard.stripe.com/test/developers
+  - find and Delete all test data
 
 #### CLI Commands
 - get customerId by email
-  - ` stripe customers list --email USERNAME@example.com | jq -r '.data[].id'`
+  - `stripe customers list --email USERNAME@example.com | jq -r '.data[].id'`
 - manually activate Alice's existing sub.
   - Find Alice's open invoice
     - `stripe invoices list --customer cus_UixfvcJsEi2xxg --status open | jq -r '.data[].id'`
