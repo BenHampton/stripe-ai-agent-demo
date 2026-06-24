@@ -32,7 +32,7 @@ interface CompiledRule {
 // file is malformed, RulesFileSchema.parse throws and the process fails to start — which
 // is exactly what you want: a broken rules file should never reach production silently.
 function loadRules(): CompiledRule[] {
-    const path = new URL('./rules.yaml', import.meta.url);
+    const path = new URL('./rules/rules.yaml', import.meta.url);
     const validated = RulesFileSchema.parse(parse(readFileSync(path, 'utf8')));
     return validated.map((r) => ({ ...r, patterns: r.patterns.map((p) => new RegExp(p, 'i')) }));
 }

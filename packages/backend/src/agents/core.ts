@@ -98,12 +98,9 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
         }
 
         if (options.useExtendedThinking && env.ENABLE_EXTENDED_THINKING) {
-            // Adaptive thinking: model decides per-turn whether to reason.
-            // thinking:{type:'enabled',budget_tokens} + interleaved-thinking beta
-            // were removed in SDK >=0.50 -- use adaptive + effort instead.
-
-            (params as any).thinking = { type: 'adaptive' };
-            (params as any).effort = 'high'
+            // (params as any).thinking = { type: 'adaptive' }; // 'adaptive' is not a valid type
+            // (params as any).effort = 'high'  // top-level 'effort' doesn't exist
+            (params as any).thinking = { type: 'enabled', budget_tokens: 5000 }
         }
 
         const stream = client.messages.stream(params)
@@ -120,6 +117,13 @@ export async function* runAgent(options: AgentRunOptions): AsyncGenerator<AgentE
 
             if (event.type === 'content_block_start') {
                 currentContentType = event.content_block.type;
+
+                // When a new text block starts and fullResponse is non-empty and doesn't already end with whitespace, inject a single
+                //  space into both fullResponse and the token stream. That closes the gap between pre-tool and post-tool text segments.
+                if (event.content_block.type === 'text' && fullResponse.length > 0 && !/\s$/.test(fullResponse)) {
+                    fullResponse += ' '
+                    yield { type: 'token', content: ' ' }
+                }
 
                 if (event.content_block.type === 'tool_use') {
                     currentToolUseId = event.content_block.id
