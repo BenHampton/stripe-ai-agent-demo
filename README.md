@@ -80,8 +80,8 @@ No shared imports from @sai/backend or @sai/shared — communicates with the bac
 
 #### Seed Test Data
 - build: `pnpm --filter @sai/shared build`
-- seed: `pnpm --filter @sai/shared seed:stripe`
-- check seeded data: `pnpm --filter @sai/shared check:stripe`
+- seed: `pnpm --filter @sai/backend seed:stripe`
+- check seeded data: `pnpm --filter @sai/backend check:stripe`
 - CLI
   - install via brew `brew install stripe/stripe-cli/stripe`
   - run `stripe login`

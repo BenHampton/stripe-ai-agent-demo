@@ -25,15 +25,16 @@ A clean, demo-ready environment from scratch:
    placeholders).
 5. **Clear stale browser state** — in DevTools console on the app tab:
    ```js
+   localStorage.removeItem('sai-auth');
+   localStorage.removeItem('agent_token');
    localStorage.removeItem('customer_id');
-   localStorage.removeItem('customer_name');
    ```
    Then reload and re-select a customer.
 6. **Run the app** (separate terminals):
    ```bash
    pnpm --filter @sai/backend dev
    pnpm --filter @sai/frontend dev
-   stripe listen --forward-to localhost:3000/webhooks/stripe
+   stripe listen --forward-to localhost:3000/api/webhooks/stripe
    ```
 
 ---
@@ -180,7 +181,7 @@ stripe events resend evt_XXX
 - **`tool input failed schema validation`** in the logs usually means a bad ID format
   (e.g. a customer ID that isn't a real `cus_...` — check the frontend customer list).
 
-- **Frontend SSE stream** — browser DevTools → Network → the `/stream` request →
+- **Frontend SSE stream** — browser DevTools → Network → the `/api/chat/stream` request →
   EventStream/Response tab shows the raw `token` / `tool_start` / `tool_blocked` / `done`
   events as they arrive. Useful for diagnosing streaming/render issues.
 
